@@ -1,0 +1,10 @@
+# Mode démonstration : Google Agenda, Fathom, Stripe et Claude SIMULÉS (aucun compte tiers, aucun envoi réel).
+# Utilisé par « Lancer HUMANUM.command ». Pour la production, n'utilisez que docker-compose.yml avec de vraies clés.
+services:
+  api:
+    command: ["sh", "-c", "alembic upgrade head && python -m tests.demo_server"]
+    environment:
+      HOST: 0.0.0.0
+      HC_MFA_ENFORCED: "false"          # double authentification facultative en démonstration (activable dans .env)
+  worker:
+    profiles: ["production"]            # le serveur de démonstration embarque son propre worker
