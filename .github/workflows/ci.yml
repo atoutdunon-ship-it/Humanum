@@ -1,0 +1,54 @@
+# Intégration continue HUMANUM CONSULTING : chaque push et chaque demande de fusion.
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+permissions: { contents: read }
+concurrency: { group: "ci-${{ github.ref }}", cancel-in-progress: true }
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      HC_TEST_PG: 127.0.0.1:5433
+      HC_TEST_REDIS: redis://127.0.0.1:6379/15
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13", cache: pip, cache-dependency-path: backend/pyproject.toml }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - run: pip install -e ".[dev]"
+      - name: Lint (ruff, règles de sécurité incluses)
+        run: ruff check .
+      - name: Tests (étanchéité RLS, rôles, administration, double authentification, Redis, Arq)
+        run: pytest -q   # asyncpg et psql lisent PGPASSWORD
+      - name: Migrations réversibles
+        run: |
+          export HC_DATABASE_OWNER_URL="postgresql+asyncpg://postgres@127.0.0.1:5433/humanum_test"
+          alembic downgrade base && alembic upgrade head
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Navigation mobile (jsdom)
+        run: npm run test:nav
+      - run: npm run build
