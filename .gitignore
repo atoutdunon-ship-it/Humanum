@@ -1,0 +1,23 @@
+# Secrets locaux — ne jamais versionner
+.env
+backend/.env
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Node / Next.js
+node_modules/
+.next/
+tsconfig.tsbuildinfo
+
+# Système et éditeurs
+.DS_Store
+.idea/
+.vscode/
